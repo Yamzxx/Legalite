@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CITIZEN
+  PROVIDER
+  ADMIN
+  SECURITY_ADMIN
+}
+
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  name                String
+  email               String     @unique
+  phone               String?
+  passwordHash        String
+  role                Role       @default(CITIZEN)
+  createdAt           DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(3)
+  lastLoginAt         DateTime?  @db.Timestamptz(3)
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?  @db.Timestamptz(3)
+  sessions            Session[]
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@index([lockedUntil])
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime  @default(now()) @db.Timestamptz(3)
+  ipAddress  String?
+  userAgent  String?
+  revokedAt  DateTime? @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, revokedAt])
+  @@index([lastUsedAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  action    String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([action])
+}
